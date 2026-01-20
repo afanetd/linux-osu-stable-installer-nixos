@@ -78,10 +78,10 @@ sudo nixos-rebuild switch --flake .#my-machine
 
 ## 🎮 How to Use
 
-1. Open your terminal or application launcher.
-2. Type `osu` (or click the **osu!** icon).
+1. Open your terminal.
+2. Type `osu` in terminal.
 3. **First Run:** A GUI installer will appear. Click "Ok" to install the game.
-* *Note: Just follow the prompts. The installer will download osu! and set up the prefix.*
+* *Note: Just follow the prompts. The installer will download osu! and set up the prefix, .desktop file.*
 
 
 4. **Subsequent Runs:** The game launches immediately.
@@ -128,10 +128,10 @@ osu-install [options]
 Install with custom font:
 
 ```bash
-osu-install --font "Noto Sans"
+osu-install --silent --font "Noto Sans"
 ```
 
-Silent install to custom directory:
+Install to custom directory:
 
 ```bash
 osu-install --silent --dir "$HOME/Games/osu"
@@ -140,7 +140,7 @@ osu-install --silent --dir "$HOME/Games/osu"
 Disable Discord Rich Presence:
 
 ```bash
-osu-install --no-rpc
+osu-install --silent --no-rpc
 ```
 
 
