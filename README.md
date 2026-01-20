@@ -1,97 +1,151 @@
-# osu! Linux Installer (Stable)
+[![NixOS](https://img.shields.io/badge/NixOS-Unstable-blue.svg)](https://nixos.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Version:** v4.0.0
-**License:** MIT
-**Languages:** [English](README.md) | [Русский](README_RU.md)
+**This is a specialized fork of [linux-osu-stable-installer](https://github.com/Kitty-Hivens/linux-osu-stable-installer), rewritten purely for NixOS.**
 
-A comprehensive Bash script for the automated deployment and configuration of the osu! (stable) client on Linux environments. This solution prioritizes low-latency performance, correct system integration, and support for modern graphics stacks.
+It removes all standard Linux logic (`apt`, `pacman`, manual Wine downloads) and replaces it with **Nix Derivations**. It ensures `osu!` runs with the correct system Wine, audio latency tweaks, and fully working map importing.
 
-The script utilizes `yad` (Yet Another Dialog) to provide a graphical configuration dashboard prior to installation.
+**Language:** [English](README.md) | [Русский](README_RU.md)
 
-## Key Features
+## ✨ Features
 
-* **Multi-Distribution Support:** Automatic dependency resolution for Arch Linux, Debian/Ubuntu, Fedora, and Void Linux.
-* **Graphics Stack:**
-    * **OpenGL:** Standard stable renderer.
-    * **DXVK:** Translation of DirectX 9/11 to Vulkan to reduce driver overhead.
-* **Window System:**
-    * **X11:** Standard Wine driver (Recommended for stability).
-    * **Wayland:** Enables the experimental native Wayland driver via Wine registry to bypass XWayland latency.
-* **Fonts & Localization:**
-    * Automatic download and registry patching for CJK fonts (WenQuanYi, Noto Sans, Koruri).
-    * Fixes glyph rendering issues in beatmap lists and chat.
-    * Enables Font Smoothing.
-* **Audio & Latency:** Applies environment variables to minimize audio buffer latency in PulseAudio/PipeWire.
-* **System Integration:**
-    * Desktop entry creation.
-    * MIME type registration: automatic import of `.osz`, `.osk`, and `.osr` files via double-click.
-    * Wrapper script to prevent multiple instance execution.
+* **Nix-Native:** Dependencies (Wine Staging, Winetricks, Curl, Yad) are handled by Nix. No global pollution.
+* **Smart Wrapper:** The executable automatically sets `STAGING_AUDIO_DURATION` and `PULSE_LATENCY_MSEC` for low latency.
+* **Working Importer:** Double-clicking `.osz` or `.osk` files in your file manager works out of the box.
+* **Self-contained:** If the game isn't installed, running `osu` triggers the GUI installer automatically.
 
-## System Requirements
+---
 
-* **OS:** Linux (Arch, Debian, Fedora, Void, or derivatives). NixOS is partially supported (requires manual `yad` installation).
-* **Dependencies:** `curl`, `unzip`, `winetricks`, `yad`. (Installed automatically on supported systems).
-* **Wine:** `wine-staging` is recommended for performance, though stable branches are supported.
+## 📦 Installation
 
-## Installation
+Choose the method that matches your NixOS configuration.
 
-### 1. Clone Repository
-```bash
-git clone https://github.com/Kitty-Hivens/linux-osu-stable-installer.git
-cd linux-osu-stable-installer
-````
+### Method 1: Nix Flakes (Recommended)
 
-### 2\. Execute Installer
+Add this repository to your `flake.nix` inputs:
 
-```bash
-chmod +x install.sh
-./install.sh
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    
+    # Add this input
+    osu-nixos.url = "github:afanetd/linux-osu-stable-installer-nixos";
+  };
+
+  outputs = { self, nixpkgs, osu-nixos, ... }: {
+    nixosConfigurations.my-machine = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        ./configuration.nix
+        {
+          environment.systemPackages = [
+            # Install the package
+            osu-nixos.packages.x86_64-linux.default
+          ];
+        }
+      ];
+    };
+  };
+}
+
 ```
 
-> **Security Note:** The script requests root privileges (via `pkexec`) **only** to install missing system packages (drivers, `yad`, `wine`) via your system's package manager. The game itself is installed in the user's home directory.
+Then rebuild your system:
 
-## Configuration Dashboard
+```bash
+sudo nixos-rebuild switch --flake .#my-machine
 
-Upon execution, a configuration window will appear. Below is a description of the available parameters:
+```
 
-| Parameter | Description |
-| :--- | :--- |
-| **Install Location** | Directory for the Wine prefix. Default: `~/.wine-osu`. |
-| **Wine Binary** | Selection of the Wine executable. The script automatically detects `wine-staging`. Custom paths (e.g., Proton or Wine-GE) can be manually specified. |
-| **Graphics API** | **OpenGL**: Standard renderer. Recommended for legacy hardware.<br>**DXVK**: Vulkan translation layer. Recommended for modern GPUs to improve frame pacing and reduce input lag. |
-| **Window Driver** | **X11**: Legacy driver. Stable and compatible with all window managers.<br>**Wayland**: Native Wine Wayland driver. Eliminates XWayland overhead. *Experimental.* |
-| **Fonts** | Selects a replacement for the standard Windows UI font to fix CJK character rendering. |
-| **Discord RPC** | Installs a bridge application to broadcast game status ("Rich Presence") to the Linux Discord client. |
+### Method 2: Manual / `configuration.nix`
 
-## Technical Implementation Details
+1. Clone this repository to `/etc/nixos/pkgs/osu` (or any persistent location).
+2. Add the package to your `configuration.nix`:
 
-### Wrapper Script
+```nix
+{ pkgs, ... }: {
+  environment.systemPackages = [
+    (pkgs.callPackage ./path/to/cloned/repo/default.nix {})
+  ];
+}
 
-The installer generates a wrapper script at `~/.config/osu-importer/osu_importer_wrapper.sh`. This script handles:
+```
 
-1.  **Environment Variables:**
-      * `STAGING_AUDIO_DURATION=10000`: Audio buffer reduction.
-      * `PULSE_LATENCY_MSEC=60`: PulseAudio optimization.
-      * `LC_ALL=en_US.UTF-8`: Locale enforcement.
-2.  **File Handling:** Checks if the game is running before importing files. If running, uses IPC to send the file; if not, launches the game with the file as an argument.
+3. Rebuild: `sudo nixos-rebuild switch`.
 
-### Uninstallation
+---
 
-The installation is isolated within the prefix. To remove:
+## 🎮 How to Use
 
-1.  Delete the prefix directory (Default: `~/.wine-osu`).
-2.  Remove integration files:
-    ```bash
-    rm ~/.local/share/applications/osu-stable.desktop
-    rm ~/.local/share/applications/osu-importer.desktop
-    rm -rf ~/.config/osu-importer
-    ```
+1. Open your terminal or application launcher.
+2. Type `osu` (or click the **osu!** icon).
+3. **First Run:** A GUI installer will appear. Click "Ok" to install the game.
+* *Note: Just follow the prompts. The installer will download osu! and set up the prefix.*
 
-## Known Issues
 
-  * **NixOS:** Automatic dependency resolution is not possible due to OS architecture. Install `yad` manually via `configuration.nix` or `nix-env` before running.
-  * **Wayland Driver:** The native Wayland driver may exhibit cursor confinement issues on certain compositors (Hyprland, Sway). If issues arise, reinstall using **X11** or edit the registry key `HKCU\Software\Wine\Drivers\Graphics`.
+4. **Subsequent Runs:** The game launches immediately.
 
-## License
+### Importing Maps/Skins
 
-Distributed under the MIT License. See [LICENSE](https://www.google.com/search?q=LICENSE) for more information.
+Simply **double-click** any `.osz` or `.osk` file in your file manager (Dolphin, Thunar, Nautilus). The wrapper will automatically pass it to the game.
+
+---
+
+### Troubleshooting
+
+If the game doesn't start, check the logs generated by the wrapper:
+
+```bash
+cat /tmp/osu.log
+
+```
+
+## 🏳️ Installer CLI Flags
+
+You can run the installer manually with arguments:
+
+```bash
+osu-install [options]
+````
+
+### Available options
+
+| Flag             | Argument | Description                                        |
+| ---------------- | -------- | -------------------------------------------------- |
+| `-s`, `--silent` | —        | Run installer **without GUI** (CLI only)           |
+| `-d`, `--dir`    | `<path>` | Custom install directory for osu!                  |
+| `--renderer`     | `<name>` | Force Wine renderer (e.g. `gl`, `vulkan`)          |
+| `--driver`       | `<name>` | Force Wine audio driver                            |
+| `--font`         | `<name>` | Install and use specific font (e.g. `"Noto Sans"`) |
+| `--no-rpc`       | —        | Disable Discord Rich Presence installation         |
+| `-h`, `--help`   | —        | Show help message and exit                         |
+
+---
+
+### Examples
+
+Install with custom font:
+
+```bash
+osu-install --font "Noto Sans"
+```
+
+Silent install to custom directory:
+
+```bash
+osu-install --silent --dir "$HOME/Games/osu"
+```
+
+Disable Discord Rich Presence:
+
+```bash
+osu-install --no-rpc
+```
+
+
+## 📜 Credits
+
+* **Original Author:** [Kitty-Hivens](https://github.com/Kitty-Hivens)
+* **NixOS Port:** [afanetd](https://github.com/afanetd)
+
