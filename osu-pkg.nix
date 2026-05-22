@@ -4,7 +4,7 @@ let
   # Список программ, которые нужны нашему скрипту
   runtimeDeps = with pkgs; [
     bash
-    wineWow64Packages.staging # Системный Wine (staging версия лучше для игр)
+    wineWowPackages.staging # Системный Wine (staging версия лучше для игр)
     winetricks
     yad                 # Для GUI окон
     curl
